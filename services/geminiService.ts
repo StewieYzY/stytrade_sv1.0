@@ -2,19 +2,25 @@
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { AgentRole, ModelType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const MAX_RETRIES = 3; 
 const BASE_DELAY = 10000; 
 
 export class GeminiTradingService {
+  // 动态获取 AI 实例，优先从 process.env.API_KEY 读取（由 App 组件注入）
+  private getAI() {
+    const key = process.env.API_KEY;
+    if (!key) {
+      throw new Error("API_KEY_MISSING");
+    }
+    return new GoogleGenAI({ apiKey: key });
+  }
+
   private async callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
     try {
       return await fn();
     } catch (error: any) {
       const errorMsg = error?.message || String(error);
       
-      // 捕获限流与配额耗尽错误
       const isRateLimit = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("Too Many Requests");
       const isQuotaExhausted = errorMsg.includes("current quota") || errorMsg.includes("daily limit") || errorMsg.includes("DAILY_QUOTA_EXHAUSTED");
 
@@ -23,7 +29,6 @@ export class GeminiTradingService {
       }
 
       if (retries > 0) {
-        // 如果是限流错误，使用更长的退避时间
         const multiplier = isRateLimit ? 2 : 1.5;
         const delay = Math.pow(multiplier, MAX_RETRIES - retries + 1) * BASE_DELAY;
         console.warn(`API 压力检测 (重试剩余 ${retries}): 正在等待 ${delay/1000}s...`);
@@ -46,6 +51,7 @@ export class GeminiTradingService {
 
   async fetchStockInfo(symbol: string): Promise<{ name: string; price: number }> {
     return this.callWithRetry(async () => {
+      const ai = this.getAI();
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: `检索证券代码 "${symbol}" 的确切公司全称和【前一交易日的收盘价格】。返回格式: {"name": "...", "price": 0.0}`,
@@ -74,7 +80,7 @@ export class GeminiTradingService {
     modelName: string = 'gemini-3-flash-preview'
   ): Promise<{ text: string; sources?: any[] }> {
     return this.callWithRetry(async () => {
-      // 分析类智能体使用极低 Temperature (0.01) 确保最大程度的一致性
+      const ai = this.getAI();
       const isAnalysisRole = [
         AgentRole.FUNDAMENTAL_ANALYST, 
         AgentRole.SENTIMENT_ANALYST, 
@@ -88,7 +94,7 @@ export class GeminiTradingService {
         config: {
           systemInstruction: systemInstruction,
           tools: useSearch ? [{ googleSearch: {} }] : undefined,
-          temperature: isAnalysisRole ? 0.01 : 0.2, // 进一步降低分析温度
+          temperature: isAnalysisRole ? 0.01 : 0.2,
         },
       });
 

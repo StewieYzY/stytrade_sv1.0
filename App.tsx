@@ -6,9 +6,9 @@ import {
 import { 
   Search, Play, ShieldAlert, BarChart3, MessageSquare, 
   FileText, TrendingUp, TrendingDown, ClipboardCheck, 
-  Activity, Loader2, RefreshCw, Calendar, Tag, History, LayoutDashboard, ChevronRight, ArrowLeft, X, Filter, Clock, AlertTriangle, Coffee, Timer, Zap, ShieldCheck, AlertCircle, Info, Settings, Save, RotateCcw, Download, Beaker, Edit3, Check, Ban, Eye, FileOutput, ExternalLink, Gauge, Square
+  Activity, Loader2, RefreshCw, Calendar, Tag, History, LayoutDashboard, ChevronRight, ArrowLeft, X, Filter, Clock, AlertTriangle, Coffee, Timer, Zap, ShieldCheck, AlertCircle, Info, Settings, Save, RotateCcw, Download, Beaker, Edit3, Check, Ban, Eye, FileOutput, ExternalLink, Gauge, Square, Key, Lock, Trash2
 } from 'lucide-react';
-import { DatePicker, Select, ConfigProvider, theme, Switch, Tooltip as AntTooltip, Modal, Button, Tag as AntTag, notification, Progress } from 'antd';
+import { DatePicker, Select, ConfigProvider, theme, Switch, Tooltip as AntTooltip, Modal, Button, Tag as AntTag, notification, Progress, Input } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 
@@ -19,7 +19,6 @@ import { AGENT_SYSTEM_INSTRUCTIONS, getPromptForStep } from './services/prompts'
 const { RangePicker } = DatePicker;
 
 const PRICE_FORECAST_DAYS = 180;
-
 const INTERNET_SEARCH_COOLDOWN = 35;
 const INFERENCE_STEP_COOLDOWN = 6;
 const PRO_MODEL_COOLDOWN = 45;
@@ -63,10 +62,8 @@ const CustomPriceTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// 渲染来源链接组件
 const GroundingSources = ({ sources }: { sources?: any[] }) => {
   if (!sources || sources.length === 0) return null;
-  
   return (
     <div className="mt-8 pt-6 border-t border-slate-800/50">
       <h3 className="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2 tracking-tight uppercase">
@@ -79,12 +76,7 @@ const GroundingSources = ({ sources }: { sources?: any[] }) => {
           if (!uri) return null;
           return (
             <li key={idx} className="group">
-              <a 
-                href={uri} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-2 truncate"
-              >
+              <a href={uri} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-2 truncate">
                 <span className="w-4 h-4 rounded bg-slate-800 flex items-center justify-center text-[8px] font-mono group-hover:bg-blue-500 group-hover:text-white transition-colors">{idx + 1}</span>
                 <span className="truncate underline decoration-slate-800 underline-offset-4 group-hover:decoration-blue-500/30">{title}</span>
               </a>
@@ -96,7 +88,6 @@ const GroundingSources = ({ sources }: { sources?: any[] }) => {
   );
 };
 
-// 舆情多维指标面板组件
 const SentimentMetricsPanel = ({ metrics, isWorking }: { metrics?: SentimentMetrics; isWorking?: boolean }) => {
   if (isWorking) {
     return (
@@ -106,7 +97,6 @@ const SentimentMetricsPanel = ({ metrics, isWorking }: { metrics?: SentimentMetr
       </div>
     );
   }
-
   if (!metrics) {
     return (
       <div className="flex flex-col items-center justify-center h-full opacity-20">
@@ -115,20 +105,15 @@ const SentimentMetricsPanel = ({ metrics, isWorking }: { metrics?: SentimentMetr
       </div>
     );
   }
-
   const renderMetric = (label: string, value: number, max: number, min: number, format: (v: number) => string, colorClass: string, showMidLine: boolean = false) => {
     const percent = ((value - min) / (max - min)) * 100;
     const clampedPercent = Math.min(100, Math.max(0, percent));
-    
     return (
       <div className="flex items-center gap-3 w-full group">
         <span className="w-16 text-[9px] font-bold text-slate-500 uppercase tracking-tight truncate shrink-0">{label}</span>
         <div className="flex-1 h-1.5 bg-slate-800/80 rounded-full relative overflow-hidden">
           {showMidLine && <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-slate-700/50 z-10" />}
-          <div 
-            className={`h-full transition-all duration-1000 ease-out ${colorClass}`} 
-            style={{ width: `${clampedPercent}%` }} 
-          />
+          <div className={`h-full transition-all duration-1000 ease-out ${colorClass}`} style={{ width: `${clampedPercent}%` }} />
         </div>
         <span className={`w-10 text-right text-[10px] font-mono font-bold shrink-0 ${colorClass.startsWith('bg-') ? colorClass.replace('bg-', 'text-') : 'text-slate-300'}`}>
           {format(value)}
@@ -136,40 +121,13 @@ const SentimentMetricsPanel = ({ metrics, isWorking }: { metrics?: SentimentMetr
       </div>
     );
   };
-
   return (
     <div className="flex flex-col gap-5 w-full">
-      {renderMetric(
-        "情绪总分", 
-        metrics.score || 0, 1, -1, 
-        (v) => v.toFixed(2), 
-        (metrics.score || 0) >= 0 ? "bg-emerald-500" : "bg-rose-500", 
-        true
-      )}
-      {renderMetric(
-        "信心指数", 
-        metrics.confidence || 0, 1, 0, 
-        (v) => `${(v * 100).toFixed(0)}%`, 
-        "bg-blue-500"
-      )}
-      {renderMetric(
-        "舆情热度", 
-        metrics.intensity || 0, 10, 0, 
-        (v) => v.toFixed(1), 
-        "bg-amber-500"
-      )}
-      {renderMetric(
-        "分歧度", 
-        metrics.disagreement || 0, 1, 0, 
-        (v) => `${(v * 100).toFixed(0)}%`, 
-        (metrics.disagreement || 0) > 0.6 ? "bg-orange-500" : "bg-slate-500"
-      )}
-      {renderMetric(
-        "衰减系数", 
-        metrics.decay || 0, 1, 0, 
-        (v) => v.toFixed(2), 
-        "bg-purple-500"
-      )}
+      {renderMetric("情绪总分", metrics.score || 0, 1, -1, (v) => v.toFixed(2), (metrics.score || 0) >= 0 ? "bg-emerald-500" : "bg-rose-500", true)}
+      {renderMetric("信心指数", metrics.confidence || 0, 1, 0, (v) => `${(v * 100).toFixed(0)}%`, "bg-blue-500")}
+      {renderMetric("舆情热度", metrics.intensity || 0, 10, 0, (v) => v.toFixed(1), "bg-amber-500")}
+      {renderMetric("分歧度", metrics.disagreement || 0, 1, 0, (v) => `${(v * 100).toFixed(0)}%`, (metrics.disagreement || 0) > 0.6 ? "bg-orange-500" : "bg-slate-500")}
+      {renderMetric("衰减系数", metrics.decay || 0, 1, 0, (v) => v.toFixed(2), "bg-purple-500")}
     </div>
   );
 };
@@ -184,12 +142,10 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [reports, setReports] = useState<Record<string, { text: string; sources?: any[]; score?: number; sentimentMetrics?: SentimentMetrics }>>({});
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorRole, setErrorRole] = useState<AgentRole | null>(null);
   const [errorModel, setErrorModel] = useState<string | null>(null);
   const [isDailyQuotaExceeded, setIsDailyQuotaExceeded] = useState(false);
-  
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const [basePrice, setBasePrice] = useState<number>(0);
   const [priceData, setPriceData] = useState<any[]>([]);
@@ -197,6 +153,11 @@ export default function App() {
   const [selectedHistory, setSelectedHistory] = useState<HistoryRecord | null>(null);
   const [filterCode, setFilterCode] = useState('');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  
+  // API Key 相关状态
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showKeyOverlay, setShowKeyOverlay] = useState(false);
+  const [inputKey, setInputKey] = useState('');
 
   const [agentModels, setAgentModels] = useState<AgentModelSettings>(() => {
     const saved = localStorage.getItem('agent_model_settings');
@@ -208,12 +169,24 @@ export default function App() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const priceDataRef = useRef<any[]>([]);
-  // 用于熔断分析流程的信号量
   const shouldStopRef = useRef(false);
 
+  // 初始化检查 API Key
   useEffect(() => {
-    const saved = localStorage.getItem('trade_history');
-    if (saved) try { setHistoryList(JSON.parse(saved)); } catch (e) {}
+    const storedKey = localStorage.getItem('GEMINI_API_KEY');
+    const envKey = process.env.API_KEY;
+    
+    if (storedKey) {
+      setApiKey(storedKey);
+      process.env.API_KEY = storedKey;
+    } else if (envKey && envKey !== 'undefined') {
+      setApiKey(envKey);
+    } else {
+      setShowKeyOverlay(true);
+    }
+    
+    const savedHistory = localStorage.getItem('trade_history');
+    if (savedHistory) try { setHistoryList(JSON.parse(savedHistory)); } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -272,7 +245,6 @@ export default function App() {
     return undefined;
   };
 
-  // 熔断处理
   const handlePauseAnalysis = () => {
     Modal.confirm({
       title: '确认暂停分析？',
@@ -282,13 +254,29 @@ export default function App() {
       cancelText: '取消',
       onOk: () => {
         shouldStopRef.current = true;
-        notification.info({
-          message: '分析已中断',
-          description: '流水线已成功熔断，后续任务已取消。',
-          placement: 'topRight'
-        });
+        notification.info({ message: '分析已中断', description: '流水线已成功熔断，后续任务已取消。', placement: 'topRight' });
       }
     });
+  };
+
+  const saveApiKey = () => {
+    if (!inputKey.trim()) {
+      notification.error({ message: '请输入有效的 Key' });
+      return;
+    }
+    localStorage.setItem('GEMINI_API_KEY', inputKey.trim());
+    process.env.API_KEY = inputKey.trim();
+    setApiKey(inputKey.trim());
+    setShowKeyOverlay(false);
+    notification.success({ message: 'AI 交易助手已激活', description: 'API Key 已安全加密存储在本地。' });
+  };
+
+  const clearApiKey = () => {
+    localStorage.removeItem('GEMINI_API_KEY');
+    process.env.API_KEY = undefined as any;
+    setApiKey('');
+    setShowKeyOverlay(true);
+    notification.warning({ message: 'API Key 已清除', description: '系统已锁定，请输入新 Key 后继续使用。' });
   };
 
   const runSOP = async () => {
@@ -303,15 +291,11 @@ export default function App() {
 
     try {
       const stockInfo = await geminiService.fetchStockInfo(symbol);
-      
-      // 检查熔断
       if (shouldStopRef.current) { setIsProcessing(false); return; }
 
       setBasePrice(stockInfo.price); setStockName(stockInfo.name); initCharts(stockInfo.price);
-      
       setStockName('正在预留网络配额...');
       await waitCooldown(INTERNET_SEARCH_COOLDOWN); 
-      
       if (shouldStopRef.current) { setIsProcessing(false); return; }
 
       const pipeline = [
@@ -330,9 +314,7 @@ export default function App() {
       let analystReportsText = "";
 
       for (let i = 0; i < pipeline.length; i++) {
-        // 检查熔断
         if (shouldStopRef.current) break;
-
         const item = pipeline[i];
         setCurrentStep(item.step);
         const actionId = Math.random().toString(36).substr(2, 9);
@@ -366,9 +348,7 @@ export default function App() {
 
           const score = extractScore(text);
           let sentimentMetrics: SentimentMetrics | undefined = undefined;
-          if (item.role === AgentRole.SENTIMENT_ANALYST) {
-            sentimentMetrics = extractSentimentMetrics(text);
-          }
+          if (item.role === AgentRole.SENTIMENT_ANALYST) sentimentMetrics = extractSentimentMetrics(text);
 
           localActions = localActions.map(a => a.id === actionId ? { ...a, status: 'completed', output: text, score, sentimentMetrics, endTime: Date.now() } : a);
           localReports = { ...localReports, [actionId]: { text, sources, score, sentimentMetrics } };
@@ -386,16 +366,18 @@ export default function App() {
 
           if (i < pipeline.length - 1) {
             await waitCooldown(cooldown); 
-            // 冷却后再次检查熔断
             if (shouldStopRef.current) break;
           }
         } catch (err: any) {
+          if (err.message === "API_KEY_MISSING") {
+            setShowKeyOverlay(true);
+            throw new Error("检测到 API Key 已失效，请重新设置。");
+          }
           localActions = localActions.map(a => a.id === actionId ? { ...a, status: 'error' } : a);
           setActions([...localActions]); setErrorRole(item.role); setErrorModel(targetModel); throw err;
         }
       }
 
-      // 如果不是因为中途暂停而结束的，则保存历史
       if (!shouldStopRef.current) {
         const now = new Date();
         const record: HistoryRecord = {
@@ -422,7 +404,6 @@ export default function App() {
     const managerAction = record.actions.find(a => a.role === AgentRole.FUND_MANAGER);
     const otherActions = record.actions.filter(a => a.role !== AgentRole.FUND_MANAGER);
     const sortedActions = managerAction ? [managerAction, ...otherActions] : record.actions;
-
     const dateSuffix = dayjs(record.timestamp).format('YYYYMMDD');
     const pdfFilename = `StGTrade_AI_Report__${record.symbol}_${dateSuffix}`;
 
@@ -448,12 +429,6 @@ export default function App() {
             .source-item { color: #64748b; margin-bottom: 4px; display: block; text-decoration: none; border-bottom: 1px dashed transparent; }
             .source-item:hover { color: #3b82f6; border-bottom-color: #3b82f6; }
             .footer { margin-top: 50px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-            @media print {
-              .no-print { display: none; }
-              body { padding: 0; }
-              .header { border-bottom-color: #3b82f6 !important; -webkit-print-color-adjust: exact; }
-              .score-tag { background-color: #3b82f6 !important; -webkit-print-color-adjust: exact; color: white !important; }
-            }
           </style>
         </head>
         <body>
@@ -466,7 +441,6 @@ export default function App() {
               <div><strong>系统版本:</strong> v3.5.0 (Multi-dim Sentiment)</div>
             </div>
           </div>
-          
           ${sortedActions.map(action => {
             const report = record.reports[action.id];
             const hasSources = report?.sources && report.sources.length > 0;
@@ -475,7 +449,6 @@ export default function App() {
               <div class="report-section ${action.role === AgentRole.FUND_MANAGER ? 'priority' : ''}">
                 <div class="role-title">${action.role} ${action.role === AgentRole.FUND_MANAGER ? ' [核心裁定]' : ''}</div>
                 ${report?.score ? `<div class="score-tag">QUANT SCORE: ${report.score}</div>` : ''}
-                
                 ${m ? `
                   <table class="metrics-table">
                     <tr><td class="label">情绪总分</td><td>${m.score.toFixed(2)}</td><td class="label">信心指数</td><td>${(m.confidence*100).toFixed(0)}%</td></tr>
@@ -484,9 +457,7 @@ export default function App() {
                   </table>
                   <br/>
                 ` : ''}
-
                 <div class="report-text">${report?.text || '该环节未生成文本。'}</div>
-                
                 ${hasSources ? `
                   <div class="source-list">
                     <div style="font-weight: bold; margin-bottom: 8px; color: #334155;">事实核查来源 (Grounding Sources):</div>
@@ -500,55 +471,13 @@ export default function App() {
               </div>
             `;
           }).join('')}
-          
-          <div class="footer">
-            <p>© 2025 STG QUANT LABS. 报告仅供内部投资决策参考，不构成任何投资建议。</p>
-          </div>
-          
-          <script>
-            window.onload = () => {
-              setTimeout(() => { window.print(); }, 500);
-            };
-          </script>
+          <div class="footer"><p>© 2025 STG QUANT LABS. 报告仅供内部投资决策参考。</p></div>
+          <script>window.onload = () => { setTimeout(() => { window.print(); }, 500); };</script>
         </body>
       </html>
     `;
     const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(printContent);
-      win.document.close();
-    }
-  };
-
-  const handleExportTestPDF = () => {
-    const mockActions: AgentAction[] = Object.values(AgentRole).map(role => ({
-      id: Math.random().toString(36).substr(2, 9),
-      role: role,
-      status: 'completed',
-      score: Math.floor(Math.random() * 100),
-      sentimentMetrics: role === AgentRole.SENTIMENT_ANALYST ? {
-        score: 0.45, confidence: 0.82, intensity: 7.2, decay: 0.15, disagreement: 0.3
-      } : undefined,
-      output: `### ${role} 模拟分析\n这是为了测试 PDF 导出功能而生成的模拟报告内容。该角色在当前市场环境下认为标的表现出明显的阶段性特征。\n\n- 关键指标 A: 稳定\n- 关键指标 B: 优于预期\n\n最终研判结论为中性偏多。 [SCORE: ${Math.floor(Math.random() * 100)}]`
-    }));
-
-    const mockReports: Record<string, { text: string; score: number; sources?: any[]; sentimentMetrics?: SentimentMetrics }> = {};
-    mockActions.forEach(a => { 
-      mockReports[a.id] = { 
-        text: a.output!, 
-        score: a.score!,
-        sentimentMetrics: a.sentimentMetrics,
-        sources: a.role === AgentRole.INTELLIGENCE_OFFICER ? [
-          { web: { title: "模拟参考网站 1", uri: "https://example.com/fact1" } },
-          { web: { title: "模拟参考网站 2", uri: "https://example.com/fact2" } }
-        ] : undefined
-      }; 
-    });
-
-    const mockRecord: HistoryRecord = {
-      id: 'mock-test', symbol: '600519', stockName: '模拟测试标的', timestamp: formatDateTime(new Date()), taskName: 'TEST_REPORT', reports: mockReports, actions: mockActions, priceData: [], sentimentData: [], basePrice: 100
-    };
-    exportRecordToPDF(mockRecord);
+    if (win) { win.document.write(printContent); win.document.close(); }
   };
 
   const startEditing = () => { setTempAgentModels({ ...agentModels }); setIsEditingModels(true); };
@@ -574,21 +503,40 @@ export default function App() {
   const lastPrice = useMemo(() => priceData.length > 0 ? priceData[priceData.length - 1].price : 0, [priceData]);
   const priceTrend = useMemo(() => basePrice === 0 ? 0 : ((lastPrice - basePrice) / basePrice) * 100, [lastPrice, basePrice]);
 
-  const currentSentimentMetrics = useMemo(() => {
-    const sentimentAction = actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST);
-    if (sentimentAction && reports[sentimentAction.id]) {
-      return reports[sentimentAction.id].sentimentMetrics;
-    }
-    return undefined;
-  }, [actions, reports]);
-
-  const isSentimentWorking = useMemo(() => {
-    const sentimentAction = actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST);
-    return sentimentAction?.status === 'working';
-  }, [actions]);
-
   return (
     <div className="flex h-screen bg-[#020617] text-slate-200 antialiased font-sans">
+      {/* API Key 守护遮罩 */}
+      {showKeyOverlay && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-blue-500/10">
+            <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-500 mb-6 mx-auto border border-blue-500/20">
+              <Lock size={32} />
+            </div>
+            <h2 className="text-2xl font-black text-white text-center mb-2 tracking-tight">激活 AI 交易助手</h2>
+            <p className="text-slate-500 text-center text-sm mb-8">
+              请输入您的 Gemini API Key 以解锁高维度多智能体流水线。Key 将仅保存在您的浏览器本地缓存中。
+            </p>
+            <div className="space-y-4">
+              <Input.Password 
+                placeholder="在此粘贴您的 API Key (AI Studio 提供)" 
+                value={inputKey} 
+                onChange={(e) => setInputKey(e.target.value)}
+                className="bg-slate-900 border-slate-800 text-white h-12 rounded-xl focus:border-blue-500 transition-all"
+              />
+              <button 
+                onClick={saveApiKey}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+              >
+                <Zap size={18} fill="currentColor" /> 立即激活
+              </button>
+              <p className="text-[10px] text-center text-slate-600 uppercase tracking-widest mt-4">
+                Powered by Gemini 2.5/3.0 Models
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="w-20 bg-[#0f172a] border-r border-slate-800 flex flex-col items-center py-8 gap-10">
         <div className="p-3 bg-blue-600 rounded-2xl shadow-xl shadow-blue-600/20 mb-4"><TrendingUp className="w-6 h-6 text-white" /></div>
         <div className="flex flex-col gap-6">
@@ -607,27 +555,16 @@ export default function App() {
           {activeView === 'analysis' && (
             <div className="flex items-center gap-4">
               <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="股票代码..." className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white font-mono w-40" disabled={isProcessing} />
-              
               {!isProcessing ? (
-                <button 
-                  onClick={runSOP} 
-                  className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 font-bold text-sm transition-all"
-                >
-                  <Play size={16} fill="currentColor" /> 开始分析
-                </button>
+                <button onClick={runSOP} className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 font-bold text-sm transition-all"><Play size={16} fill="currentColor" /> 开始分析</button>
               ) : (
-                <button 
-                  onClick={handlePauseAnalysis}
-                  className="flex items-center gap-2 px-6 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 font-bold text-sm transition-all animate-pulse"
-                >
-                  {cooldownLeft > 0 ? <Timer size={16} /> : <Square size={14} fill="currentColor" />} 暂停分析 {cooldownLeft > 0 ? `(${cooldownLeft}s)` : ''}
-                </button>
+                <button onClick={handlePauseAnalysis} className="flex items-center gap-2 px-6 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 font-bold text-sm transition-all animate-pulse">{cooldownLeft > 0 ? <Timer size={16} /> : <Square size={14} fill="currentColor" />} 暂停分析 {cooldownLeft > 0 ? `(${cooldownLeft}s)` : ''}</button>
               )}
             </div>
           )}
           {activeView === 'settings' && (
             <div className="flex items-center gap-4">
-              <button onClick={handleExportTestPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold border border-slate-700 transition-all"><FileOutput size={16} /> 导出测试 PDF</button>
+              <button onClick={clearApiKey} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 text-sm font-bold border border-rose-500/20 transition-all"><Trash2 size={16} /> 重置 API Key</button>
               {!isEditingModels ? <button onClick={startEditing} className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-lg shadow-blue-600/20"><Edit3 size={16} /> 编辑模型配置</button> : <div className="flex items-center gap-3"><button onClick={cancelEditing} className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-sm font-bold">取消</button><button onClick={saveEditing} className="px-6 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-600/20">确认保存</button></div>}
             </div>
           )}
@@ -650,11 +587,8 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-
                 <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-col overflow-hidden">
-                  <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
-                    <span className="text-xs font-bold text-slate-400 uppercase">智能体任务栈</span>
-                  </div>
+                  <div className="p-4 border-b border-slate-800 bg-slate-800/20"><span className="text-xs font-bold text-slate-400 uppercase">智能体任务栈</span></div>
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" ref={scrollRef}>
                     {actions.map((action) => (
                       <div key={action.id} onClick={() => setSelectedReportId(action.id)} className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedReportId === action.id ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${action.status === 'working' ? 'border-blue-500/50' : ''}`}>
@@ -682,9 +616,7 @@ export default function App() {
                         <div className="flex flex-col items-end">
                           <span className="text-[10px] text-slate-500 uppercase font-mono tracking-tighter">预期终值 (较分析基准)</span>
                           <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${priceTrend >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                              {priceTrend >= 0 ? '+' : ''}{priceTrend.toFixed(2)}%
-                            </span>
+                            <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${priceTrend >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{priceTrend >= 0 ? '+' : ''}{priceTrend.toFixed(2)}%</span>
                             <span className={`text-2xl font-black font-mono leading-none ${priceTrend >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>¥{lastPrice.toFixed(2)}</span>
                           </div>
                         </div>
@@ -701,12 +633,9 @@ export default function App() {
                    </div>
                    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 h-60 flex flex-col overflow-hidden">
                       <h3 className="text-[11px] font-bold text-slate-500 uppercase mb-5 flex items-center gap-2"><MessageSquare size={12} className="text-emerald-500"/> 舆情多维透视</h3>
-                      <div className="flex-1 flex flex-col justify-center px-1 pb-2">
-                        <SentimentMetricsPanel metrics={currentSentimentMetrics} isWorking={isSentimentWorking} />
-                      </div>
+                      <div className="flex-1 flex flex-col justify-center px-1 pb-2"><SentimentMetricsPanel metrics={reports[actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.id || '']?.sentimentMetrics} isWorking={actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.status === 'working'} /></div>
                    </div>
                 </div>
-
                 <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-md">
                   <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                     <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/20"><FileText size={20} /></div><h2 className="text-sm font-black text-white uppercase tracking-tight">{selectedReportId ? actions.find(a => a.id === selectedReportId)?.role : '流水线监控 (稳定性补丁 v3.5.0)'}</h2></div>
@@ -729,30 +658,27 @@ export default function App() {
                <div className="max-w-6xl mx-auto w-full overflow-hidden flex flex-col h-full">
                  <h2 className="text-3xl font-black text-white tracking-tighter mb-4 flex items-center gap-3"><Settings size={32} className="text-blue-500" /> 智能体算力配置中心</h2>
                  <p className="text-slate-500 text-sm mb-10 max-w-2xl">根据任务复杂度分配模型。建议将决策者（如基金经理、风险专家）设置为 Pro 模型以获得更精准的量化裁定。</p>
-                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-10 custom-scrollbar pr-2">
+                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-4 custom-scrollbar pr-2">
                     {Object.values(AgentRole).map((role) => {
                       const currentVal = isEditingModels ? tempAgentModels[role] : agentModels[role];
                       return (
                         <div key={role} className={`transition-all p-5 rounded-2xl border bg-slate-900/40 backdrop-blur-sm shadow-xl flex flex-col justify-between h-40 ${isEditingModels ? 'border-blue-500/40 ring-1 ring-blue-500/10 shadow-blue-500/5' : 'border-slate-800 hover:border-slate-700'}`}>
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-lg bg-slate-800/50">{getRoleIcon(role)}</div>
-                            <h4 className="text-slate-200 font-bold text-sm tracking-tight">{role}</h4>
-                          </div>
-                          <Select 
-                            value={currentVal} 
-                            onChange={(val) => handleModelChange(role, val as ModelType)} 
-                            className="w-full h-10" 
-                            disabled={!isEditingModels} 
-                            popupClassName="dark-select-dropdown"
-                            options={[
-                              { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (高精度)' }, 
-                              { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (平衡)' }, 
-                              { value: 'gemini-flash-lite-latest', label: 'Gemini Lite (极速)' }
-                            ]} 
-                          />
+                          <div className="flex items-center gap-3 mb-4"><div className="p-2 rounded-lg bg-slate-800/50">{getRoleIcon(role)}</div><h4 className="text-slate-200 font-bold text-sm tracking-tight">{role}</h4></div>
+                          <Select value={currentVal} onChange={(val) => handleModelChange(role, val as ModelType)} className="w-full h-10" disabled={!isEditingModels} popupClassName="dark-select-dropdown" options={[{ value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (高精度)' }, { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (平衡)' }, { value: 'gemini-flash-lite-latest', label: 'Gemini Lite (极速)' }]} />
                         </div>
                       );
                     })}
+                 </div>
+                 
+                 <div className="mt-8 p-6 bg-slate-900/60 border border-slate-800 rounded-3xl flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500 border border-blue-500/20"><Key size={24} /></div>
+                      <div>
+                        <h4 className="text-white font-bold text-sm">Gemini API 安全凭证</h4>
+                        <p className="text-slate-500 text-xs mt-1">当前状态: {apiKey ? `已激活 (***${apiKey.slice(-4)})` : '待激活'}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setShowKeyOverlay(true)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-all">重新设置 Key</button>
                  </div>
                </div>
             </div>
@@ -766,56 +692,24 @@ export default function App() {
                       <div key={record.id} onClick={() => { setSelectedHistory(record); setActiveView('history-detail'); }} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition-all cursor-pointer group relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight className="text-blue-500" /></div>
                         <h3 className="text-lg font-bold text-white mb-1">{record.stockName}</h3>
-                        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 mb-4">
-                           <span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 font-bold">{record.symbol}</span>
-                           <span>|</span>
-                           <span>{record.timestamp}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <AntTag color="blue" className="m-0 border-0 bg-blue-500/10 text-blue-400 font-bold font-mono">PDF READY</AntTag>
-                           <AntTag color="emerald" className="m-0 border-0 bg-emerald-500/10 text-emerald-500 font-bold font-mono">v3.5.0</AntTag>
-                        </div>
+                        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 mb-4"><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 font-bold">{record.symbol}</span><span>|</span><span>{record.timestamp}</span></div>
+                        <div className="flex items-center gap-2"><AntTag color="blue" className="m-0 border-0 bg-blue-500/10 text-blue-400 font-bold font-mono">PDF READY</AntTag><AntTag color="emerald" className="m-0 border-0 bg-emerald-500/10 text-emerald-500 font-bold font-mono">v3.5.0</AntTag></div>
                       </div>
                     ))}
                   </div>
-                  {filteredHistory.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-40 text-slate-600">
-                       <History size={60} strokeWidth={1} className="mb-4 opacity-20" />
-                       <p className="text-sm font-bold uppercase tracking-widest opacity-40">暂无历史研报记录</p>
-                    </div>
-                  )}
+                  {filteredHistory.length === 0 && <div className="flex flex-col items-center justify-center py-40 text-slate-600"><History size={60} strokeWidth={1} className="mb-4 opacity-20" /><p className="text-sm font-bold uppercase tracking-widest opacity-40">暂无历史研报记录</p></div>}
                 </div>
              </div>
           )}
           {activeView === 'history-detail' && selectedHistory && (
              <div className="flex-1 flex flex-col p-8 overflow-hidden bg-[#020617]">
                 <div className="max-w-6xl mx-auto w-full flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-8">
-                     <button onClick={() => setActiveView('history')} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors font-bold uppercase text-xs tracking-widest"><ArrowLeft size={16} /> 返回列表</button>
-                     <button onClick={() => exportRecordToPDF(selectedHistory)} className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm shadow-xl shadow-blue-600/20"><Download size={16} /> 导出 PDF 报告</button>
-                  </div>
+                  <div className="flex items-center justify-between mb-8"><button onClick={() => setActiveView('history')} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors font-bold uppercase text-xs tracking-widest"><ArrowLeft size={16} /> 返回列表</button><button onClick={() => exportRecordToPDF(selectedHistory)} className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm shadow-xl shadow-blue-600/20"><Download size={16} /> 导出 PDF 报告</button></div>
                   <div className="bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-1 overflow-hidden">
-                     <aside className="w-80 border-r border-slate-800 flex flex-col bg-slate-800/10">
-                        <div className="p-4 border-b border-slate-800 bg-slate-800/20"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">智能体环节索引</span></div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
-                           {selectedHistory.actions.map(action => (
-                             <div key={action.id} onClick={() => setSelectedReportId(action.id)} className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedReportId === action.id ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-800/20 border-transparent hover:border-slate-700'}`}>
-                                <div className="flex items-center gap-2 mb-1">
-                                  {getRoleIcon(action.role)}
-                                  <span className="text-xs font-bold text-slate-200">{action.role}</span>
-                                </div>
-                                {recordReportsScore(selectedHistory, action.id) !== undefined && <div className="text-[9px] font-bold text-blue-500 font-mono text-center">SCORE: {recordReportsScore(selectedHistory, action.id)}</div>}
-                             </div>
-                           ))}
-                        </div>
-                     </aside>
+                     <aside className="w-80 border-r border-slate-800 flex flex-col bg-slate-800/10"><div className="p-4 border-b border-slate-800 bg-slate-800/20"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">智能体环节索引</span></div><div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">{selectedHistory.actions.map(action => (<div key={action.id} onClick={() => setSelectedReportId(action.id)} className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedReportId === action.id ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-800/20 border-transparent hover:border-slate-700'}`}><div className="flex items-center gap-2 mb-1">{getRoleIcon(action.role)}<span className="text-xs font-bold text-slate-200">{action.role}</span></div>{selectedHistory.reports[action.id]?.score !== undefined && <div className="text-[9px] font-bold text-blue-500 font-mono text-center">SCORE: {selectedHistory.reports[action.id]?.score}</div>}</div>))}</div></aside>
                      <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-900/20">
                         {selectedReportId && selectedHistory.reports[selectedReportId] ? (
-                           <div className="markdown-content max-w-3xl mx-auto">
-                              <h2 className="mb-6">{selectedHistory.actions.find(a => a.id === selectedReportId)?.role} 研判全文</h2>
-                              <div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{selectedHistory.reports[selectedReportId].text}</div>
-                              <GroundingSources sources={selectedHistory.reports[selectedReportId].sources} />
-                           </div>
+                           <div className="markdown-content max-w-3xl mx-auto"><h2 className="mb-6">{selectedHistory.actions.find(a => a.id === selectedReportId)?.role} 研判全文</h2><div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{selectedHistory.reports[selectedReportId].text}</div><GroundingSources sources={selectedHistory.reports[selectedReportId].sources} /></div>
                         ) : <div className="h-full flex flex-col items-center justify-center opacity-30 text-slate-500"><FileText size={48} className="mb-4" /><p className="font-bold text-xs uppercase tracking-widest">请选择环节查看详情</p></div>}
                      </div>
                   </div>
@@ -823,32 +717,12 @@ export default function App() {
              </div>
           )}
         </main>
-
         <footer className="px-6 py-2 bg-[#020617] border-t border-slate-800 flex justify-between items-center text-[9px] text-slate-600 font-mono uppercase tracking-widest">
-           <div className="flex gap-4">
-             <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500"/> SSoT Architecture: ACTIVE</span>
-             <span>|</span>
-             <span className="flex items-center gap-1 text-blue-400"><Clock size={10}/> Last Heartbeat: {new Date().toLocaleTimeString()}</span>
-           </div>
+           <div className="flex gap-4"><span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500"/> SSoT Architecture: ACTIVE</span><span>|</span><span className="flex items-center gap-1 text-blue-400"><Clock size={10}/> Last Heartbeat: {new Date().toLocaleTimeString()}</span></div>
            <span>© 2025 STG QUANT LABS | VERSION 3.5.0</span>
         </footer>
       </div>
-
-      <style>{`
-        .animate-spin-slow { animation: spin 8s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .dark-select-dropdown {
-          background-color: #0f172a !important;
-          border: 1px solid #1e293b !important;
-        }
-        .ant-select-item { color: #94a3b8 !important; }
-        .ant-select-item-option-selected { background: #1e293b !important; color: white !important; font-weight: bold; }
-        .ant-select-item-option-active { background: #3b82f620 !important; }
-      `}</style>
+      <style>{`.animate-spin-slow { animation: spin 8s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .dark-select-dropdown { background-color: #0f172a !important; border: 1px solid #1e293b !important; } .ant-select-item { color: #94a3b8 !important; } .ant-select-item-option-selected { background: #1e293b !important; color: white !important; font-weight: bold; } .ant-select-item-option-active { background: #3b82f620 !important; }`}</style>
     </div>
   );
-
-  function recordReportsScore(record: HistoryRecord, id: string) {
-    return record.reports[id]?.score;
-  }
 }
