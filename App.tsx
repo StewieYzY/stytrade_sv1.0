@@ -178,21 +178,15 @@ export default function App() {
     // @ts-ignore
     const viteKey = import.meta.env?.VITE_GEMINI_API_KEY;
     // @ts-ignore
-    const processKey = typeof process !== 'undefined' ? process.env?.API_KEY : null;
+    const processKey = typeof process !== 'undefined' ? (process.env?.API_KEY || process.env?.VITE_GEMINI_API_KEY) : null;
 
     const finalKey = (storedKey && storedKey.trim() !== '') ? storedKey : (viteKey || processKey);
     
     if (finalKey && finalKey !== 'undefined' && finalKey !== '') {
+      console.log("[App] 已检测到有效的初始化 API Key。");
       setApiKey(finalKey);
-      // 将 key 同步到 window.process 供 SDK 某种程度下的向后兼容（若有）
-      // @ts-ignore
-      if (typeof window !== 'undefined') {
-        // @ts-ignore
-        if (!window.process) window.process = { env: {} };
-        // @ts-ignore
-        window.process.env.API_KEY = finalKey;
-      }
     } else {
+      console.warn("[App] 未找到 API Key，显示激活遮罩。");
       setShowKeyOverlay(true);
     }
     
@@ -277,14 +271,6 @@ export default function App() {
       return;
     }
     localStorage.setItem('STG_TRADING_KEY', trimmedKey);
-    // 更新内存中的全局变量
-    // @ts-ignore
-    if (typeof window !== 'undefined') {
-      // @ts-ignore
-      if (!window.process) window.process = { env: {} };
-      // @ts-ignore
-      window.process.env.API_KEY = trimmedKey;
-    }
     setApiKey(trimmedKey);
     setShowKeyOverlay(false);
     notification.success({ 
@@ -292,8 +278,8 @@ export default function App() {
       description: 'API Key 已安全保存在本地沙盒，决策引擎已就绪。',
       icon: <ShieldCheck className="text-emerald-500" />
     });
-    // 强制刷新当前视图以确保 Service 能够重新获取实例
-    setTimeout(() => window.location.reload(), 800);
+    // 强制刷新当前页面以应用新的 Key
+    setTimeout(() => window.location.reload(), 500);
   };
 
   const clearApiKey = () => {
@@ -312,7 +298,17 @@ export default function App() {
   };
 
   const runSOP = async () => {
+    // 核心强校验：点击开始前必须检查 Key
+    const currentKey = localStorage.getItem('STG_TRADING_KEY') || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (!currentKey || currentKey === 'undefined') {
+      console.error("[App] 分析启动失败：未找到 API Key。");
+      setShowKeyOverlay(true);
+      notification.error({ message: '分析启动失败', description: '请先配置有效的 Gemini API Key。' });
+      return;
+    }
+
     if (!symbol || isProcessing) return;
+    
     setIsProcessing(true);
     shouldStopRef.current = false;
     setActions([]); setReports({}); setSelectedReportId(null); setErrorMessage(null); setErrorRole(null); setErrorModel(null);
@@ -322,6 +318,7 @@ export default function App() {
     let localReports: Record<string, { text: string; sources?: any[]; score?: number; sentimentMetrics?: SentimentMetrics }> = {};
 
     try {
+      console.log("[App] 正在启动情报收集 (Stage 1)...");
       const stockInfo = await geminiService.fetchStockInfo(symbol);
       if (shouldStopRef.current) { setIsProcessing(false); return; }
 
@@ -348,6 +345,7 @@ export default function App() {
       for (let i = 0; i < pipeline.length; i++) {
         if (shouldStopRef.current) break;
         const item = pipeline[i];
+        console.log(`[App] 正在调度智能体: ${item.role}...`);
         setCurrentStep(item.step);
         const actionId = Math.random().toString(36).substr(2, 9);
         localActions = [...localActions, { id: actionId, role: item.role, status: 'working', startTime: Date.now() }];
@@ -421,6 +419,7 @@ export default function App() {
       }
     } catch (err: any) {
       const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+      console.error("[App] SOP 工作流异常终止:", errStr);
       if (errStr.includes("DAILY_QUOTA_EXHAUSTED")) {
         setIsDailyQuotaExceeded(true);
         setErrorMessage("检测到 Google API 每日配额耗尽，请稍后再试。");
@@ -481,7 +480,7 @@ export default function App() {
                   <span className="text-[10px] text-slate-500 uppercase tracking-tight">End-to-End Local Encryption Active</span>
                 </div>
                 <p className="text-[9px] text-slate-600 max-w-[240px] text-center leading-relaxed">
-                  您的 Key 仅会保存在浏览器 localStorage 中，不会通过除 Google 官方 API 之外的任何第三方服务器。
+                  您的 Key 仅会保存在浏览器 localStorage 中，不会发送至任何非 Google 官方服务器。
                 </p>
               </div>
             </div>
@@ -493,13 +492,12 @@ export default function App() {
       <nav className="w-20 bg-[#0f172a] border-r border-slate-800 flex flex-col items-center py-8 gap-10">
         <div className="p-3 bg-blue-600 rounded-2xl shadow-xl shadow-blue-600/20 mb-4"><TrendingUp className="w-6 h-6 text-white" /></div>
         <div className="flex flex-col gap-6">
-          <button onClick={() => setActiveView('analysis')} className={`p-3 rounded-xl transition-all ${activeView === 'analysis' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}><LayoutDashboard size={24} /></button>
-          <button onClick={() => setActiveView('history')} className={`p-3 rounded-xl transition-all ${activeView === 'history' || activeView === 'history-detail' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}><History size={24} /></button>
-          <button onClick={() => setActiveView('settings')} className={`p-3 rounded-xl transition-all ${activeView === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}><Settings size={24} /></button>
+          <button onClick={() => setActiveView('analysis')} className={`p-3 rounded-xl transition-all ${activeView === 'analysis' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="分析大盘"><LayoutDashboard size={24} /></button>
+          <button onClick={() => setActiveView('history')} className={`p-3 rounded-xl transition-all ${activeView === 'history' || activeView === 'history-detail' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="历史记录"><History size={24} /></button>
+          <button onClick={() => setActiveView('settings')} className={`p-3 rounded-xl transition-all ${activeView === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`} title="设置"><Settings size={24} /></button>
         </div>
       </nav>
 
-      {/* 主内容区 */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#020617]/90 backdrop-blur-xl z-20">
           <div className="flex items-center gap-3">
@@ -525,7 +523,6 @@ export default function App() {
         </header>
 
         <main className="flex flex-1 overflow-hidden">
-          {/* 这里复用之前版本的分析、历史和设置 UI 逻辑 */}
           {activeView === 'analysis' && (
             <div className="flex-1 flex overflow-hidden p-6 gap-6">
               <aside className="w-[360px] flex flex-col gap-6">
@@ -582,7 +579,6 @@ export default function App() {
               </section>
             </div>
           )}
-          {/* 这里可以继续补充历史记录和设置页面的具体内容 */}
           {activeView === 'settings' && (
             <div className="flex-1 flex flex-col p-10 overflow-hidden bg-[#020617]">
                <div className="max-w-6xl mx-auto w-full overflow-hidden flex flex-col h-full">

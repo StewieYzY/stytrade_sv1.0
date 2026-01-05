@@ -7,40 +7,43 @@ const BASE_DELAY = 10000;
 
 export class GeminiTradingService {
   /**
-   * 动态获取 AI 实例
-   * 优先级：
-   * 1. localStorage.getItem('STG_TRADING_KEY') - 用户手动设置
-   * 2. import.meta.env.VITE_GEMINI_API_KEY - Vercel/Vite 部署环境变量
-   * 3. process.env.API_KEY - 系统注入或旧版兼容
+   * 核心修改：强制实时读取逻辑
+   * 每次调用 AI 功能前都会重新执行此方法，确保 localStorage 变更能立即生效
    */
   private getAI() {
-    // 1. 检查浏览器本地存储
+    console.log("[GeminiService] 正在尝试动态获取 API Key...");
+
+    // 1. 优先检查浏览器本地存储 (用户手动输入的 Key)
     const storedKey = typeof localStorage !== 'undefined' ? localStorage.getItem('STG_TRADING_KEY') : null;
+    if (storedKey && storedKey.trim() !== '') {
+      console.log("[GeminiService] 成功从 localStorage (STG_TRADING_KEY) 读取到 Key。");
+      return new GoogleGenAI({ apiKey: storedKey.trim() });
+    }
     
-    // 2. 检查 Vite 环境变量 (import.meta.env 在现代 bundler 中会被替换)
+    // 2. 兜底检查 Vite/Vercel 环境变量
     // @ts-ignore
     const viteEnvKey = import.meta.env?.VITE_GEMINI_API_KEY;
+    if (viteEnvKey && viteEnvKey !== '' && viteEnvKey !== 'undefined') {
+      console.log("[GeminiService] 成功从环境变量 (VITE_GEMINI_API_KEY) 读取到 Key。");
+      return new GoogleGenAI({ apiKey: viteEnvKey });
+    }
     
-    // 3. 检查全局 process 对象 (Node 兼容或 shim)
+    // 3. 检查全局 process 兼容层
     // @ts-ignore
-    const processEnvKey = typeof process !== 'undefined' ? process.env?.API_KEY : null;
-
-    const finalKey = (storedKey && storedKey.trim() !== '') 
-      ? storedKey 
-      : (viteEnvKey || processEnvKey);
-
-    if (!finalKey || finalKey === 'undefined' || finalKey === '') {
-      console.warn("Gemini API Key 未配置，系统进入待激活状态。");
-      return null;
+    const processEnvKey = typeof process !== 'undefined' ? (process.env?.API_KEY || process.env?.VITE_GEMINI_API_KEY) : null;
+    if (processEnvKey && processEnvKey !== '' && processEnvKey !== 'undefined') {
+      console.log("[GeminiService] 成功从 process.env 读取到 Key。");
+      return new GoogleGenAI({ apiKey: processEnvKey });
     }
 
-    return new GoogleGenAI({ apiKey: finalKey });
+    console.error("[GeminiService] 逻辑终止：未找到任何有效的 API Key 配置。请在 UI 界面设置 Key。");
+    return null;
   }
 
   private async callWithRetry<T>(fn: (ai: any) => Promise<T>, retries = MAX_RETRIES): Promise<T> {
     const ai = this.getAI();
     if (!ai) {
-      // 抛出特定错误，由 UI 捕捉并显示激活弹窗
+      // 这里的错误会被 App.tsx 的 runSOP 捕获并弹出 Key 输入遮罩
       throw new Error("API_KEY_MISSING");
     }
 
@@ -48,6 +51,7 @@ export class GeminiTradingService {
       return await fn(ai);
     } catch (error: any) {
       const errorMsg = error?.message || String(error);
+      console.error(`[GeminiService] API 调用失败: ${errorMsg}`);
       
       const isRateLimit = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("Too Many Requests");
       const isQuotaExhausted = errorMsg.includes("current quota") || errorMsg.includes("daily limit") || errorMsg.includes("DAILY_QUOTA_EXHAUSTED");
@@ -59,7 +63,7 @@ export class GeminiTradingService {
       if (retries > 0) {
         const multiplier = isRateLimit ? 2 : 1.5;
         const delay = Math.pow(multiplier, MAX_RETRIES - retries + 1) * BASE_DELAY;
-        console.warn(`API 压力检测 (重试剩余 ${retries}): 正在等待 ${delay/1000}s...`);
+        console.warn(`[GeminiService] 自动重试中 (剩余 ${retries}): 预计等待 ${delay/1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.callWithRetry(fn, retries - 1);
       }
@@ -131,4 +135,5 @@ export class GeminiTradingService {
   }
 }
 
+// 导出单例，确保全局统一
 export const geminiService = new GeminiTradingService();
