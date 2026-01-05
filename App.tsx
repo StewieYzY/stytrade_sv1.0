@@ -6,7 +6,7 @@ import {
 import { 
   Search, Play, ShieldAlert, BarChart3, MessageSquare, 
   FileText, TrendingUp, TrendingDown, ClipboardCheck, 
-  Activity, Loader2, RefreshCw, Calendar, Tag, History, LayoutDashboard, ChevronRight, ArrowLeft, X, Filter, Clock, AlertTriangle, Coffee, Timer, Zap, ShieldCheck, AlertCircle, Info, Settings, Save, RotateCcw, Download, Beaker, Edit3, Check, Ban, Eye, FileOutput, ExternalLink, Gauge, Square, Key, Lock, Trash2
+  Activity, Loader2, RefreshCw, Calendar, Tag, History, LayoutDashboard, ChevronRight, ArrowLeft, X, Filter, Clock, AlertTriangle, Coffee, Timer, Zap, ShieldCheck, AlertCircle, Info, Settings, Save, RotateCcw, Download, Beaker, Edit3, Check, Ban, Eye, FileOutput, ExternalLink, Gauge, Square, Key, Lock, Trash2, Cpu
 } from 'lucide-react';
 import { DatePicker, Select, ConfigProvider, theme, Switch, Tooltip as AntTooltip, Modal, Button, Tag as AntTag, notification, Progress, Input } from 'antd';
 import dayjs from 'dayjs';
@@ -173,13 +173,15 @@ export default function App() {
 
   // 初始化检查 API Key
   useEffect(() => {
-    const storedKey = localStorage.getItem('GEMINI_API_KEY');
+    const storedKey = localStorage.getItem('STG_TRADING_KEY');
     const envKey = process.env.API_KEY;
     
-    if (storedKey) {
+    // 逻辑：优先 localStorage
+    if (storedKey && storedKey.trim() !== '') {
       setApiKey(storedKey);
+      // 同时同步到全局供其他模块读取（如果有旧逻辑依赖它）
       process.env.API_KEY = storedKey;
-    } else if (envKey && envKey !== 'undefined') {
+    } else if (envKey && envKey !== 'undefined' && envKey !== '') {
       setApiKey(envKey);
     } else {
       setShowKeyOverlay(true);
@@ -260,23 +262,37 @@ export default function App() {
   };
 
   const saveApiKey = () => {
-    if (!inputKey.trim()) {
-      notification.error({ message: '请输入有效的 Key' });
+    const trimmedKey = inputKey.trim();
+    if (!trimmedKey) {
+      notification.error({ message: '请输入有效的 API Key' });
       return;
     }
-    localStorage.setItem('GEMINI_API_KEY', inputKey.trim());
-    process.env.API_KEY = inputKey.trim();
-    setApiKey(inputKey.trim());
+    localStorage.setItem('STG_TRADING_KEY', trimmedKey);
+    // 更新内存中的环境变量，确保 Service 能立即感知
+    process.env.API_KEY = trimmedKey;
+    setApiKey(trimmedKey);
     setShowKeyOverlay(false);
-    notification.success({ message: 'AI 交易助手已激活', description: 'API Key 已安全加密存储在本地。' });
+    notification.success({ 
+      message: 'AI 交易助手已激活', 
+      description: 'API Key 已安全保存，所有高维智能体模块均已解锁。',
+      icon: <Zap className="text-blue-500" />
+    });
   };
 
   const clearApiKey = () => {
-    localStorage.removeItem('GEMINI_API_KEY');
-    process.env.API_KEY = undefined as any;
-    setApiKey('');
-    setShowKeyOverlay(true);
-    notification.warning({ message: 'API Key 已清除', description: '系统已锁定，请输入新 Key 后继续使用。' });
+    Modal.confirm({
+      title: '确认重置安全凭证？',
+      content: '清除后，系统将无法继续调用 Gemini AI 引擎，您需要重新输入 Key 才能激活。',
+      okText: '确认清除',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        localStorage.removeItem('STG_TRADING_KEY');
+        process.env.API_KEY = '';
+        setApiKey('');
+        setShowKeyOverlay(true);
+        notification.warning({ message: '安全凭证已失效', description: '系统已进入锁定状态。' });
+      }
+    });
   };
 
   const runSOP = async () => {
@@ -371,7 +387,8 @@ export default function App() {
         } catch (err: any) {
           if (err.message === "API_KEY_MISSING") {
             setShowKeyOverlay(true);
-            throw new Error("检测到 API Key 已失效，请重新设置。");
+            setIsProcessing(false);
+            return;
           }
           localActions = localActions.map(a => a.id === actionId ? { ...a, status: 'error' } : a);
           setActions([...localActions]); setErrorRole(item.role); setErrorModel(targetModel); throw err;
@@ -422,56 +439,11 @@ export default function App() {
             .score-tag { display: inline-block; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
             .role-title { color: #0f172a; font-size: 18px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
             .report-text { white-space: pre-wrap; font-size: 14px; color: #334155; }
-            .metrics-table { font-size: 11px; border-collapse: collapse; margin-top: 15px; width: 100%; max-width: 400px; }
-            .metrics-table td { padding: 4px 8px; border: 1px solid #e2e8f0; }
-            .metrics-table .label { background: #f8fafc; font-weight: bold; width: 100px; }
-            .source-list { margin-top: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; font-size: 11px; }
-            .source-item { color: #64748b; margin-bottom: 4px; display: block; text-decoration: none; border-bottom: 1px dashed transparent; }
-            .source-item:hover { color: #3b82f6; border-bottom-color: #3b82f6; }
-            .footer { margin-top: 50px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>StGTrade AI 机构级投资决策研报</h1>
-            <div class="meta">
-              <div><strong>交易标的:</strong> ${record.stockName} (${record.symbol})</div>
-              <div><strong>基准价格:</strong> ¥${record.basePrice.toFixed(2)}</div>
-              <div><strong>生成时间:</strong> ${record.timestamp}</div>
-              <div><strong>系统版本:</strong> v3.5.0 (Multi-dim Sentiment)</div>
-            </div>
-          </div>
-          ${sortedActions.map(action => {
-            const report = record.reports[action.id];
-            const hasSources = report?.sources && report.sources.length > 0;
-            const m = report?.sentimentMetrics;
-            return `
-              <div class="report-section ${action.role === AgentRole.FUND_MANAGER ? 'priority' : ''}">
-                <div class="role-title">${action.role} ${action.role === AgentRole.FUND_MANAGER ? ' [核心裁定]' : ''}</div>
-                ${report?.score ? `<div class="score-tag">QUANT SCORE: ${report.score}</div>` : ''}
-                ${m ? `
-                  <table class="metrics-table">
-                    <tr><td class="label">情绪总分</td><td>${m.score.toFixed(2)}</td><td class="label">信心指数</td><td>${(m.confidence*100).toFixed(0)}%</td></tr>
-                    <tr><td class="label">舆情热度</td><td>${m.intensity.toFixed(1)}</td><td class="label">分歧度</td><td>${(m.disagreement*100).toFixed(0)}%</td></tr>
-                    <tr><td class="label">衰减系数</td><td>${m.decay.toFixed(2)}</td><td></td><td></td></tr>
-                  </table>
-                  <br/>
-                ` : ''}
-                <div class="report-text">${report?.text || '该环节未生成文本。'}</div>
-                ${hasSources ? `
-                  <div class="source-list">
-                    <div style="font-weight: bold; margin-bottom: 8px; color: #334155;">事实核查来源 (Grounding Sources):</div>
-                    ${report.sources.map((s: any, i: number) => {
-                      const url = s.web?.uri || s.maps?.uri;
-                      const title = s.web?.title || s.maps?.title || url;
-                      return `<a href="${url}" class="source-item" target="_blank">[${i+1}] ${title}</a>`;
-                    }).join('')}
-                  </div>
-                ` : ''}
-              </div>
-            `;
-          }).join('')}
-          <div class="footer"><p>© 2025 STG QUANT LABS. 报告仅供内部投资决策参考。</p></div>
+          <div class="header"><h1>StGTrade AI 机构级投资决策研报</h1><div class="meta"><div><strong>交易标的:</strong> ${record.stockName} (${record.symbol})</div><div><strong>生成时间:</strong> ${record.timestamp}</div></div></div>
+          ${sortedActions.map(action => `<div class="report-section ${action.role === AgentRole.FUND_MANAGER ? 'priority' : ''}"><div class="role-title">${action.role}</div><div class="report-text">${record.reports[action.id]?.text || '无数据'}</div></div>`).join('')}
           <script>window.onload = () => { setTimeout(() => { window.print(); }, 500); };</script>
         </body>
       </html>
@@ -505,33 +477,40 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#020617] text-slate-200 antialiased font-sans">
-      {/* API Key 守护遮罩 */}
+      {/* API Key 激活全屏遮罩 */}
       {showKeyOverlay && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-blue-500/10">
-            <div className="w-16 h-16 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-500 mb-6 mx-auto border border-blue-500/20">
-              <Lock size={32} />
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-[#0f172a] border border-slate-800 rounded-3xl p-10 shadow-2xl shadow-blue-500/20 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+            <div className="w-20 h-20 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-500 mb-8 mx-auto border border-blue-500/20 shadow-inner">
+              <Cpu size={40} className="animate-pulse" />
             </div>
-            <h2 className="text-2xl font-black text-white text-center mb-2 tracking-tight">激活 AI 交易助手</h2>
-            <p className="text-slate-500 text-center text-sm mb-8">
-              请输入您的 Gemini API Key 以解锁高维度多智能体流水线。Key 将仅保存在您的浏览器本地缓存中。
+            <h2 className="text-3xl font-black text-white text-center mb-3 tracking-tighter">系统激活就绪</h2>
+            <p className="text-slate-400 text-center text-sm mb-10 leading-relaxed px-4">
+              请输入您的 <span className="text-blue-400 font-bold">Gemini API Key</span> 以激活 StGTrade AI 多智能体决策系统。
             </p>
-            <div className="space-y-4">
-              <Input.Password 
-                placeholder="在此粘贴您的 API Key (AI Studio 提供)" 
-                value={inputKey} 
-                onChange={(e) => setInputKey(e.target.value)}
-                className="bg-slate-900 border-slate-800 text-white h-12 rounded-xl focus:border-blue-500 transition-all"
-              />
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Security Credential</label>
+                <Input.Password 
+                  placeholder="在此输入您的 API Key..." 
+                  value={inputKey} 
+                  onChange={(e) => setInputKey(e.target.value)}
+                  className="bg-slate-900/50 border-slate-800 text-white h-14 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                  onPressEnter={saveApiKey}
+                />
+              </div>
               <button 
                 onClick={saveApiKey}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all shadow-xl shadow-blue-600/30 flex items-center justify-center gap-3 group"
               >
-                <Zap size={18} fill="currentColor" /> 立即激活
+                <Zap size={20} className="group-hover:scale-110 transition-transform" fill="currentColor" /> 
+                <span className="uppercase tracking-widest text-sm">Activate Engine</span>
               </button>
-              <p className="text-[10px] text-center text-slate-600 uppercase tracking-widest mt-4">
-                Powered by Gemini 2.5/3.0 Models
-              </p>
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <ShieldCheck size={12} className="text-slate-600" />
+                <span className="text-[10px] text-slate-600 uppercase tracking-tight">Key will be stored locally in your browser sandbox</span>
+              </div>
             </div>
           </div>
         </div>
@@ -564,7 +543,7 @@ export default function App() {
           )}
           {activeView === 'settings' && (
             <div className="flex items-center gap-4">
-              <button onClick={clearApiKey} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 text-sm font-bold border border-rose-500/20 transition-all"><Trash2 size={16} /> 重置 API Key</button>
+              <button onClick={clearApiKey} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 text-sm font-bold border border-rose-500/20 transition-all"><Trash2 size={16} /> 重置安全凭证</button>
               {!isEditingModels ? <button onClick={startEditing} className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-lg shadow-blue-600/20"><Edit3 size={16} /> 编辑模型配置</button> : <div className="flex items-center gap-3"><button onClick={cancelEditing} className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-sm font-bold">取消</button><button onClick={saveEditing} className="px-6 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-600/20">确认保存</button></div>}
             </div>
           )}
@@ -595,10 +574,7 @@ export default function App() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={action.status === 'error' ? 'text-rose-500' : action.status === 'working' ? 'text-blue-400 animate-pulse' : ''}>{getRoleIcon(action.role)}</div>
-                            <div className="flex flex-col">
-                              <span className={`text-xs font-bold ${action.status === 'error' ? 'text-rose-400' : 'text-slate-200'}`}>{action.role}</span>
-                              {action.score !== undefined && <span className="text-[9px] font-black text-blue-400 uppercase tracking-tighter">Score: {action.score}</span>}
-                            </div>
+                            <div className="flex flex-col"><span className={`text-xs font-bold ${action.status === 'error' ? 'text-rose-400' : 'text-slate-200'}`}>{action.role}</span>{action.score !== undefined && <span className="text-[9px] font-black text-blue-400 uppercase tracking-tighter">Score: {action.score}</span>}</div>
                           </div>
                           <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold ${action.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : action.status === 'working' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-700 text-slate-400'}`}>{action.status.toUpperCase()}</span>
                         </div>
@@ -607,46 +583,21 @@ export default function App() {
                   </div>
                 </div>
               </aside>
-
               <section className="flex-1 flex flex-col gap-6">
                 <div className="grid grid-cols-3 gap-6">
                    <div className="col-span-2 bg-slate-900/40 border border-slate-800 rounded-2xl p-5 h-60 relative overflow-hidden group">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-2"><TrendingUp size={12} className="text-blue-500"/> 预期股价变化 (180D)</h3>
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-slate-500 uppercase font-mono tracking-tighter">预期终值 (较分析基准)</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${priceTrend >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{priceTrend >= 0 ? '+' : ''}{priceTrend.toFixed(2)}%</span>
-                            <span className={`text-2xl font-black font-mono leading-none ${priceTrend >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>¥{lastPrice.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="h-40 mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={priceData}>
-                            <defs><linearGradient id="pGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
-                            <XAxis dataKey="date" hide /><YAxis domain={['auto', 'auto']} hide /><Tooltip content={<CustomPriceTooltip />} />
-                            <Area type="monotone" dataKey="price" stroke="#3b82f6" fill="url(#pGrad)" strokeWidth={3} dot={false} />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <div className="flex justify-between items-start mb-2"><h3 className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-2"><TrendingUp size={12} className="text-blue-500"/> 预期股价变化 (180D)</h3><div className="flex flex-col items-end"><span className="text-[10px] text-slate-500 uppercase font-mono tracking-tighter">预期终值 (较分析基准)</span><div className="flex items-center gap-2"><span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${priceTrend >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{priceTrend >= 0 ? '+' : ''}{priceTrend.toFixed(2)}%</span><span className={`text-2xl font-black font-mono leading-none ${priceTrend >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>¥{lastPrice.toFixed(2)}</span></div></div></div>
+                      <div className="h-40 mt-4"><ResponsiveContainer width="100%" height="100%"><AreaChart data={priceData}><defs><linearGradient id="pGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs><XAxis dataKey="date" hide /><YAxis domain={['auto', 'auto']} hide /><Tooltip content={<CustomPriceTooltip />} /><Area type="monotone" dataKey="price" stroke="#3b82f6" fill="url(#pGrad)" strokeWidth={3} dot={false} /></AreaChart></ResponsiveContainer></div>
                    </div>
-                   <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 h-60 flex flex-col overflow-hidden">
-                      <h3 className="text-[11px] font-bold text-slate-500 uppercase mb-5 flex items-center gap-2"><MessageSquare size={12} className="text-emerald-500"/> 舆情多维透视</h3>
-                      <div className="flex-1 flex flex-col justify-center px-1 pb-2"><SentimentMetricsPanel metrics={reports[actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.id || '']?.sentimentMetrics} isWorking={actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.status === 'working'} /></div>
-                   </div>
+                   <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 h-60 flex flex-col overflow-hidden"><h3 className="text-[11px] font-bold text-slate-500 uppercase mb-5 flex items-center gap-2"><MessageSquare size={12} className="text-emerald-500"/> 舆情多维透视</h3><div className="flex-1 flex flex-col justify-center px-1 pb-2"><SentimentMetricsPanel metrics={reports[actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.id || '']?.sentimentMetrics} isWorking={actions.find(a => a.role === AgentRole.SENTIMENT_ANALYST)?.status === 'working'} /></div></div>
                 </div>
                 <div className="flex-1 bg-slate-900/30 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-md">
                   <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                     <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 border border-blue-500/20"><FileText size={20} /></div><h2 className="text-sm font-black text-white uppercase tracking-tight">{selectedReportId ? actions.find(a => a.id === selectedReportId)?.role : '流水线监控 (稳定性补丁 v3.5.0)'}</h2></div>
-                    {reports[selectedReportId!]?.score !== undefined && <div className="text-xs font-bold px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full border border-blue-500/30 font-mono text-center min-w-[120px]">WEIGHTED SCORE: {reports[selectedReportId!]?.score}</div>}
                   </div>
                   <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-[#020617]/40">
                     {selectedReportId && reports[selectedReportId] ? (
-                      <div className="markdown-content max-w-4xl mx-auto">
-                        <div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{reports[selectedReportId].text}</div>
-                        <GroundingSources sources={reports[selectedReportId].sources} />
-                      </div>
+                      <div className="markdown-content max-w-4xl mx-auto"><div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{reports[selectedReportId].text}</div><GroundingSources sources={reports[selectedReportId].sources} /></div>
                     ) : <div className="h-full flex flex-col items-center justify-center text-slate-700 opacity-40"><RefreshCw size={80} strokeWidth={0.5} className="animate-spin-slow" /><p className="text-xl font-bold mt-4 tracking-tighter uppercase">Initializing Intelligence Dossier</p><p className="text-[10px] mt-2 font-mono text-slate-500 uppercase">Stability Patch Active</p></div>}
                   </div>
                 </div>
@@ -657,64 +608,35 @@ export default function App() {
             <div className="flex-1 flex flex-col p-10 overflow-hidden bg-[#020617]">
                <div className="max-w-6xl mx-auto w-full overflow-hidden flex flex-col h-full">
                  <h2 className="text-3xl font-black text-white tracking-tighter mb-4 flex items-center gap-3"><Settings size={32} className="text-blue-500" /> 智能体算力配置中心</h2>
-                 <p className="text-slate-500 text-sm mb-10 max-w-2xl">根据任务复杂度分配模型。建议将决策者（如基金经理、风险专家）设置为 Pro 模型以获得更精准的量化裁定。</p>
+                 <p className="text-slate-500 text-sm mb-10 max-w-2xl px-1">根据任务复杂度分配模型。建议将裁定角色（基金经理）设置为 Pro 以获得最强逻辑能力。</p>
                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-4 custom-scrollbar pr-2">
-                    {Object.values(AgentRole).map((role) => {
-                      const currentVal = isEditingModels ? tempAgentModels[role] : agentModels[role];
-                      return (
-                        <div key={role} className={`transition-all p-5 rounded-2xl border bg-slate-900/40 backdrop-blur-sm shadow-xl flex flex-col justify-between h-40 ${isEditingModels ? 'border-blue-500/40 ring-1 ring-blue-500/10 shadow-blue-500/5' : 'border-slate-800 hover:border-slate-700'}`}>
-                          <div className="flex items-center gap-3 mb-4"><div className="p-2 rounded-lg bg-slate-800/50">{getRoleIcon(role)}</div><h4 className="text-slate-200 font-bold text-sm tracking-tight">{role}</h4></div>
-                          <Select value={currentVal} onChange={(val) => handleModelChange(role, val as ModelType)} className="w-full h-10" disabled={!isEditingModels} popupClassName="dark-select-dropdown" options={[{ value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (高精度)' }, { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (平衡)' }, { value: 'gemini-flash-lite-latest', label: 'Gemini Lite (极速)' }]} />
-                        </div>
-                      );
-                    })}
+                    {Object.values(AgentRole).map((role) => (
+                      <div key={role} className={`transition-all p-5 rounded-2xl border bg-slate-900/40 backdrop-blur-sm shadow-xl flex flex-col justify-between h-40 ${isEditingModels ? 'border-blue-500/40 ring-1 ring-blue-500/10' : 'border-slate-800 hover:border-slate-700'}`}>
+                        <div className="flex items-center gap-3 mb-4"><div className="p-2 rounded-lg bg-slate-800/50">{getRoleIcon(role)}</div><h4 className="text-slate-200 font-bold text-sm tracking-tight">{role}</h4></div>
+                        <Select value={isEditingModels ? tempAgentModels[role] : agentModels[role]} onChange={(val) => handleModelChange(role, val as ModelType)} className="w-full h-10" disabled={!isEditingModels} popupClassName="dark-select-dropdown" options={[{ value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (高精度)' }, { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (平衡)' }, { value: 'gemini-flash-lite-latest', label: 'Gemini Lite (极速)' }]} />
+                      </div>
+                    ))}
                  </div>
-                 
-                 <div className="mt-8 p-6 bg-slate-900/60 border border-slate-800 rounded-3xl flex items-center justify-between">
+                 <div className="mt-8 p-6 bg-slate-900/60 border border-slate-800 rounded-3xl flex items-center justify-between shadow-2xl">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500 border border-blue-500/20"><Key size={24} /></div>
+                      <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500 border border-blue-500/20 shadow-inner"><Key size={24} /></div>
                       <div>
-                        <h4 className="text-white font-bold text-sm">Gemini API 安全凭证</h4>
-                        <p className="text-slate-500 text-xs mt-1">当前状态: {apiKey ? `已激活 (***${apiKey.slice(-4)})` : '待激活'}</p>
+                        <h4 className="text-white font-bold text-sm">Gemini API 安全凭证管理</h4>
+                        <p className="text-slate-500 text-[10px] uppercase tracking-wider mt-1 font-mono">Status: {apiKey ? `Active (***${apiKey.slice(-4)})` : 'Inactive'}</p>
                       </div>
                     </div>
-                    <button onClick={() => setShowKeyOverlay(true)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-all">重新设置 Key</button>
+                    <button onClick={() => setShowKeyOverlay(true)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-all flex items-center gap-2"><Lock size={14} /> 重新配置凭证</button>
                  </div>
                </div>
             </div>
           )}
           {activeView === 'history' && (
              <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
-                <div className="max-w-6xl mx-auto">
-                  <h2 className="text-3xl font-black text-white mb-8 tracking-tighter">历史研报数据库</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredHistory.map((record) => (
-                      <div key={record.id} onClick={() => { setSelectedHistory(record); setActiveView('history-detail'); }} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition-all cursor-pointer group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight className="text-blue-500" /></div>
-                        <h3 className="text-lg font-bold text-white mb-1">{record.stockName}</h3>
-                        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 mb-4"><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 font-bold">{record.symbol}</span><span>|</span><span>{record.timestamp}</span></div>
-                        <div className="flex items-center gap-2"><AntTag color="blue" className="m-0 border-0 bg-blue-500/10 text-blue-400 font-bold font-mono">PDF READY</AntTag><AntTag color="emerald" className="m-0 border-0 bg-emerald-500/10 text-emerald-500 font-bold font-mono">v3.5.0</AntTag></div>
-                      </div>
-                    ))}
-                  </div>
-                  {filteredHistory.length === 0 && <div className="flex flex-col items-center justify-center py-40 text-slate-600"><History size={60} strokeWidth={1} className="mb-4 opacity-20" /><p className="text-sm font-bold uppercase tracking-widest opacity-40">暂无历史研报记录</p></div>}
-                </div>
+                <div className="max-w-6xl mx-auto"><h2 className="text-3xl font-black text-white mb-8 tracking-tighter">历史研报数据库</h2><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredHistory.map((record) => (<div key={record.id} onClick={() => { setSelectedHistory(record); setActiveView('history-detail'); }} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 hover:border-blue-500/50 transition-all cursor-pointer group relative overflow-hidden"><div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight className="text-blue-500" /></div><h3 className="text-lg font-bold text-white mb-1">{record.stockName}</h3><div className="flex items-center gap-2 text-xs font-mono text-slate-500 mb-4"><span className="px-2 py-0.5 bg-slate-800 rounded text-blue-400 font-bold">{record.symbol}</span><span>|</span><span>{record.timestamp}</span></div><div className="flex items-center gap-2"><AntTag color="blue" className="m-0 border-0 bg-blue-500/10 text-blue-400 font-bold font-mono">PDF READY</AntTag><AntTag color="emerald" className="m-0 border-0 bg-emerald-500/10 text-emerald-500 font-bold font-mono">v3.5.0</AntTag></div></div>))}</div>{filteredHistory.length === 0 && <div className="flex flex-col items-center justify-center py-40 text-slate-600"><History size={60} strokeWidth={1} className="mb-4 opacity-20" /><p className="text-sm font-bold uppercase tracking-widest opacity-40">暂无历史研报记录</p></div>}</div>
              </div>
           )}
           {activeView === 'history-detail' && selectedHistory && (
-             <div className="flex-1 flex flex-col p-8 overflow-hidden bg-[#020617]">
-                <div className="max-w-6xl mx-auto w-full flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-8"><button onClick={() => setActiveView('history')} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors font-bold uppercase text-xs tracking-widest"><ArrowLeft size={16} /> 返回列表</button><button onClick={() => exportRecordToPDF(selectedHistory)} className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm shadow-xl shadow-blue-600/20"><Download size={16} /> 导出 PDF 报告</button></div>
-                  <div className="bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-1 overflow-hidden">
-                     <aside className="w-80 border-r border-slate-800 flex flex-col bg-slate-800/10"><div className="p-4 border-b border-slate-800 bg-slate-800/20"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">智能体环节索引</span></div><div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">{selectedHistory.actions.map(action => (<div key={action.id} onClick={() => setSelectedReportId(action.id)} className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedReportId === action.id ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-800/20 border-transparent hover:border-slate-700'}`}><div className="flex items-center gap-2 mb-1">{getRoleIcon(action.role)}<span className="text-xs font-bold text-slate-200">{action.role}</span></div>{selectedHistory.reports[action.id]?.score !== undefined && <div className="text-[9px] font-bold text-blue-500 font-mono text-center">SCORE: {selectedHistory.reports[action.id]?.score}</div>}</div>))}</div></aside>
-                     <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-900/20">
-                        {selectedReportId && selectedHistory.reports[selectedReportId] ? (
-                           <div className="markdown-content max-w-3xl mx-auto"><h2 className="mb-6">{selectedHistory.actions.find(a => a.id === selectedReportId)?.role} 研判全文</h2><div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{selectedHistory.reports[selectedReportId].text}</div><GroundingSources sources={selectedHistory.reports[selectedReportId].sources} /></div>
-                        ) : <div className="h-full flex flex-col items-center justify-center opacity-30 text-slate-500"><FileText size={48} className="mb-4" /><p className="font-bold text-xs uppercase tracking-widest">请选择环节查看详情</p></div>}
-                     </div>
-                  </div>
-                </div>
-             </div>
+             <div className="flex-1 flex flex-col p-8 overflow-hidden bg-[#020617]"><div className="max-w-6xl mx-auto w-full flex flex-col h-full"><div className="flex items-center justify-between mb-8"><button onClick={() => setActiveView('history')} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors font-bold uppercase text-xs tracking-widest"><ArrowLeft size={16} /> 返回列表</button><button onClick={() => exportRecordToPDF(selectedHistory)} className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm shadow-xl shadow-blue-600/20"><Download size={16} /> 导出 PDF 报告</button></div><div className="bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-1 overflow-hidden"><aside className="w-80 border-r border-slate-800 flex flex-col bg-slate-800/10"><div className="p-4 border-b border-slate-800 bg-slate-800/20"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">智能体环节索引</span></div><div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">{selectedHistory.actions.map(action => (<div key={action.id} onClick={() => setSelectedReportId(action.id)} className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedReportId === action.id ? 'bg-blue-600/10 border-blue-500/40' : 'bg-slate-800/20 border-transparent hover:border-slate-700'}`}><div className="flex items-center gap-2 mb-1">{getRoleIcon(action.role)}<span className="text-xs font-bold text-slate-200">{action.role}</span></div>{selectedHistory.reports[action.id]?.score !== undefined && <div className="text-[9px] font-bold text-blue-500 font-mono text-center">SCORE: {selectedHistory.reports[action.id]?.score}</div>}</div>))}</div></aside><div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-900/20">{selectedReportId && selectedHistory.reports[selectedReportId] ? (<div className="markdown-content max-w-3xl mx-auto"><h2 className="mb-6">{selectedHistory.actions.find(a => a.id === selectedReportId)?.role} 研判全文</h2><div className="whitespace-pre-wrap text-slate-300 leading-relaxed text-base">{selectedHistory.reports[selectedReportId].text}</div><GroundingSources sources={selectedHistory.reports[selectedReportId].sources} /></div>) : <div className="h-full flex flex-col items-center justify-center opacity-30 text-slate-500"><FileText size={48} className="mb-4" /><p className="font-bold text-xs uppercase tracking-widest">请选择环节查看详情</p></div>}</div></div></div></div>
           )}
         </main>
         <footer className="px-6 py-2 bg-[#020617] border-t border-slate-800 flex justify-between items-center text-[9px] text-slate-600 font-mono uppercase tracking-widest">
@@ -722,7 +644,6 @@ export default function App() {
            <span>© 2025 STG QUANT LABS | VERSION 3.5.0</span>
         </footer>
       </div>
-      <style>{`.animate-spin-slow { animation: spin 8s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .dark-select-dropdown { background-color: #0f172a !important; border: 1px solid #1e293b !important; } .ant-select-item { color: #94a3b8 !important; } .ant-select-item-option-selected { background: #1e293b !important; color: white !important; font-weight: bold; } .ant-select-item-option-active { background: #3b82f620 !important; }`}</style>
     </div>
   );
 }

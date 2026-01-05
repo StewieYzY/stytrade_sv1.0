@@ -6,18 +6,30 @@ const MAX_RETRIES = 3;
 const BASE_DELAY = 10000; 
 
 export class GeminiTradingService {
-  // 动态获取 AI 实例，优先从 process.env.API_KEY 读取（由 App 组件注入）
+  /**
+   * 动态获取 AI 实例
+   * 优先级：localStorage('STG_TRADING_KEY') > process.env.API_KEY
+   */
   private getAI() {
-    const key = process.env.API_KEY;
-    if (!key) {
-      throw new Error("API_KEY_MISSING");
+    const storedKey = localStorage.getItem('STG_TRADING_KEY');
+    const envKey = process.env.API_KEY;
+    const finalKey = (storedKey && storedKey.trim() !== '') ? storedKey : envKey;
+
+    if (!finalKey || finalKey === 'undefined') {
+      // 不直接 throw，由调用者处理或触发 UI 拦截
+      return null;
     }
-    return new GoogleGenAI({ apiKey: key });
+    return new GoogleGenAI({ apiKey: finalKey });
   }
 
-  private async callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
+  private async callWithRetry<T>(fn: (ai: any) => Promise<T>, retries = MAX_RETRIES): Promise<T> {
+    const ai = this.getAI();
+    if (!ai) {
+      throw new Error("API_KEY_MISSING");
+    }
+
     try {
-      return await fn();
+      return await fn(ai);
     } catch (error: any) {
       const errorMsg = error?.message || String(error);
       
@@ -50,8 +62,7 @@ export class GeminiTradingService {
   }
 
   async fetchStockInfo(symbol: string): Promise<{ name: string; price: number }> {
-    return this.callWithRetry(async () => {
-      const ai = this.getAI();
+    return this.callWithRetry(async (ai) => {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: `检索证券代码 "${symbol}" 的确切公司全称和【前一交易日的收盘价格】。返回格式: {"name": "...", "price": 0.0}`,
@@ -79,8 +90,7 @@ export class GeminiTradingService {
     useSearch: boolean = false,
     modelName: string = 'gemini-3-flash-preview'
   ): Promise<{ text: string; sources?: any[] }> {
-    return this.callWithRetry(async () => {
-      const ai = this.getAI();
+    return this.callWithRetry(async (ai) => {
       const isAnalysisRole = [
         AgentRole.FUNDAMENTAL_ANALYST, 
         AgentRole.SENTIMENT_ANALYST, 
