@@ -1,0 +1,7 @@
+{
+  "name": "Copy of StGTrade sv1.0",
+  "description": "稳定版1.0，用于vercel部署",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

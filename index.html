@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StGTrade AI - 多智能体交易决策系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Ant Design 5 Style Reset -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.15.0/dist/reset.css">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+      
+      :root {
+        --bg-color: #020617;
+        --card-bg: #0f172a;
+        --border-color: #1e293b;
+        --text-color: #f8fafc;
+        --primary-blue: #3b82f6;
+      }
+
+      body {
+        font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        overflow: hidden;
+      }
+
+      /* Global Ant Design Theme Overrides for Dark Mode visibility */
+      .ant-picker, 
+      .ant-select-selector, 
+      .ant-picker-panel-container, 
+      .ant-picker-panel,
+      .ant-select-dropdown {
+        background-color: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-color) !important;
+      }
+      
+      .ant-picker-input > input, 
+      .ant-select-selection-item,
+      .ant-select-item-option-content {
+        color: var(--text-color) !important;
+      }
+
+      .ant-picker-header button,
+      .ant-picker-prev-icon,
+      .ant-picker-next-icon,
+      .ant-picker-super-prev-icon,
+      .ant-picker-super-next-icon {
+        color: #94a3b8 !important;
+      }
+
+      .ant-picker-cell {
+        color: #475569 !important;
+      }
+
+      .ant-picker-cell-in-view {
+        color: #94a3b8 !important;
+      }
+
+      .ant-picker-cell-selected .ant-picker-cell-inner {
+        background: var(--primary-blue) !important;
+        color: white !important;
+      }
+
+      .ant-picker-range-separator {
+        color: #64748b !important;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 10px;
+      }
+
+      .markdown-content h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: #38bdf8; }
+      .markdown-content h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #7dd3fc; border-bottom: 1px solid #334155; padding-bottom: 0.25rem; }
+      .markdown-content p { margin-bottom: 1rem; line-height: 1.6; color: #cbd5e1; }
+      
+      .agent-active-glow {
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        border-color: var(--primary-blue) !important;
+      }
+    </style>
+    <!-- Critical shim for process.env -->
+    <script>
+      window.process = { 
+        env: { 
+          NODE_ENV: 'production'
+        } 
+      };
+    </script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react/": "https://esm.sh/react@18.2.0/",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "@google/genai": "https://esm.sh/@google/genai@1.34.0",
+        "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+        "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react,react-dom",
+        "antd": "https://esm.sh/antd@5.15.0?bundle&external=react,react-dom,dayjs",
+        "dayjs": "https://esm.sh/dayjs@1.11.10",
+        "dayjs/": "https://esm.sh/dayjs@1.11.10/",
+        "@ant-design/colors": "https://esm.sh/@ant-design/colors@7.1.0"
+      }
+    }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
