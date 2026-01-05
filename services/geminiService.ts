@@ -8,23 +8,39 @@ const BASE_DELAY = 10000;
 export class GeminiTradingService {
   /**
    * 动态获取 AI 实例
-   * 优先级：localStorage('STG_TRADING_KEY') > process.env.API_KEY
+   * 优先级：
+   * 1. localStorage.getItem('STG_TRADING_KEY') - 用户手动设置
+   * 2. import.meta.env.VITE_GEMINI_API_KEY - Vercel/Vite 部署环境变量
+   * 3. process.env.API_KEY - 系统注入或旧版兼容
    */
   private getAI() {
-    const storedKey = localStorage.getItem('STG_TRADING_KEY');
-    const envKey = process.env.API_KEY;
-    const finalKey = (storedKey && storedKey.trim() !== '') ? storedKey : envKey;
+    // 1. 检查浏览器本地存储
+    const storedKey = typeof localStorage !== 'undefined' ? localStorage.getItem('STG_TRADING_KEY') : null;
+    
+    // 2. 检查 Vite 环境变量 (import.meta.env 在现代 bundler 中会被替换)
+    // @ts-ignore
+    const viteEnvKey = import.meta.env?.VITE_GEMINI_API_KEY;
+    
+    // 3. 检查全局 process 对象 (Node 兼容或 shim)
+    // @ts-ignore
+    const processEnvKey = typeof process !== 'undefined' ? process.env?.API_KEY : null;
 
-    if (!finalKey || finalKey === 'undefined') {
-      // 不直接 throw，由调用者处理或触发 UI 拦截
+    const finalKey = (storedKey && storedKey.trim() !== '') 
+      ? storedKey 
+      : (viteEnvKey || processEnvKey);
+
+    if (!finalKey || finalKey === 'undefined' || finalKey === '') {
+      console.warn("Gemini API Key 未配置，系统进入待激活状态。");
       return null;
     }
+
     return new GoogleGenAI({ apiKey: finalKey });
   }
 
   private async callWithRetry<T>(fn: (ai: any) => Promise<T>, retries = MAX_RETRIES): Promise<T> {
     const ai = this.getAI();
     if (!ai) {
+      // 抛出特定错误，由 UI 捕捉并显示激活弹窗
       throw new Error("API_KEY_MISSING");
     }
 
